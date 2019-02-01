@@ -1,0 +1,23 @@
+---
+- name: Include OS-specific variables.
+  include_vars: "CentOs.yml"
+  when: apache_create_vhosts
+  
+- name: Create directories for vhosts
+  file: path={{ item.documentroot }}
+        state=directory 
+  with_items: "{{ apache_vhosts }}"
+  when: apache_create_vhosts 
+  
+- name: Add apache vhosts configuration.
+  template:
+    src: "{{ apache_vhosts_template }}"
+    dest: "{{ apache_conf_path }}/{{ apache_vhosts_filename }}"
+    owner: root
+    group: root
+    mode: 0644
+  when: apache_create_vhosts 
+#  notify: restart apache
+#  when: apache_create_vhosts
+- name: restart apache
+  service: name=httpd state=restarted

@@ -1,0 +1,57 @@
+---
+# These tasks install http and the php modules.
+
+- name: install httpd and dependencies
+  yum:
+    name: httpd,php,php-mysqlnd,libsemanage-python,mod_ssl,php-gd,php-ldap,php-odbc,php-pear,php-xml,php-xmlrpc,php-mbstring,php-snmp,php-soap,curl,php-mcrypt,php-bcmath
+    state: latest
+  when: ansible_distribution == 'CentOS' or ansible_distribution == 'Red Hat Enterprise Linux'
+
+- name: install httpd and dependencies
+  apt:
+    name: httpd,php,php-mysqlnd,libsemanage-python,mod_ssl,php-gd,php-ldap,php-odbc,php-pear,php-xml,php-xmlrpc,php-mbstring,php-snmp,php-soap,curl,php-mcrypt,php-bcmath
+    state: latest
+  when: ansible_distribution == 'Debian' or ansible_distribution == 'Ubuntu'
+
+- name: Install web role specific dependencies
+  yum: name={{ item }} state=installed
+  with_items:
+   - git
+
+- name: insert firewalld http rule for httpd
+  firewalld: port=80/tcp permanent=true state=enabled immediate=yes
+
+- name: insert firewalld https rule for httpd
+  firewalld: port=443/tcp permanent=true state=enabled immediate=yes
+
+- name: Configure httpd.conf
+  template: src=httpd.conf.j2 dest=/etc/httpd/conf/httpd.conf
+- name: Configure ssl.conf
+  template: src=ssl.conf.j2 dest=/etc/httpd/conf.d/ssl.conf
+
+- name: Configure php.ini
+  ini_file:
+    dest: /etc/php.ini
+    section: PHP
+    option: "{{ item.option }}"
+    value: "{{ item.value }}"
+  with_items:
+    - { option: 'upload_max_filesize', value: "{{ php_upload_max_filesize }}" }
+
+- name: http service state
+  service: name=httpd state=started enabled=yes
+
+- service:
+    name: httpd
+    state: restarted
+
+- name: Configure SELinux to allow httpd to connect to remote database
+  seboolean: name=httpd_can_network_connect_db state=true persistent=yes
+  ignore_errors: yes
+
+- name: Set SELinux policy and state
+  selinux:  state=disabled
+
+
+#- name: Enable mod rewrite
+#  shell: a2enmod rewrite
